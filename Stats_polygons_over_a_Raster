@@ -1,0 +1,43 @@
+library(raster)
+library(sf)
+
+shp <- shapefile('thematic.shp')
+area(shp)
+img <- stack("imagename.tif")
+num_bands <- nlayers(img)
+values <- extract(img, shp)
+head(values,2)
+
+stats <- lapply(values, function(x) {
+  data.frame(
+    pixels = length(x),
+    min = min(x, na.rm = TRUE),
+    max = max(x, na.rm = TRUE),
+    mean = mean(x, na.rm = TRUE),
+    sd = sd(x, na.rm = TRUE)
+  )
+})
+stats_df <- do.call(rbind, stats)
+stats_df$id <- 1:nrow(stats_df)
+
+# stats for every band of the image 
+
+values_list <- lapply(1:num_bands, function(i) {
+  extract(img[[i]], shp)
+})
+
+stats_list <- sapply(values_list, function(values) {
+  sapply(values, function(x) {
+    data.frame(
+      pixels = length(x),
+      min = min(x, na.rm = TRUE),
+      max = max(x, na.rm = TRUE),
+      mean = mean(x, na.rm = TRUE),
+      sd = sd(x, na.rm = TRUE)
+    )
+  })
+}, simplify = FALSE)
+
+stats_bands_df <- do.call(rbind, stats_list)
+# ----------------
+
