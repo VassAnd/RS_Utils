@@ -2,13 +2,13 @@ library(cluster)
 library(fpc)
 
 # Generate random synthetic data simulating a multi-band image with 5 bands
-
+nop <- 1000
 image_data <- data.frame(
-  band1 = runif(1000),
-  band2 = runif(1000),
-  band3 = runif(1000),
-  band4 = runif(1000),
-  band5 = runif(1000)
+  band1 = runif(nop),
+  band2 = runif(nop),
+  band3 = runif(nop),
+  band4 = runif(nop),
+  band5 = runif(nop)
 )
 
 # Define the range of the number of clusters to evaluate
