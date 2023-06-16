@@ -1,0 +1,70 @@
+library(raster)
+library(rgdal)
+library(sp)
+
+image_raster <- raster("my_image.tif")
+image(image_raster,col=grey(seq(0, 1, length = 8)))
+
+circular_filter <- function(radius) {
+  diameter <- 2 * radius + 1
+  filter_matrix <- matrix(0, nrow=diameter, ncol=diameter)
+  for (i in 1:diameter) {
+    for (j in 1:diameter) {
+      distance <- sqrt((i - radius - 1)^2 + (j - radius - 1)^2)
+      filter_matrix[i, j] <- ifelse(distance <= radius, 1, 0)
+    }
+  }
+  filter_matrix / sum(filter_matrix)
+}
+
+radius <- 10
+filter_matrix <- circular_filter(radius)
+filtered_raster <- focal(image_raster, w=filter_matrix, pad=TRUE, padValue=NA)
+summary(filtered_raster)
+image(filtered_raster,col=grey(seq(0, 1, length = 8)))
+
+# Use a threshold to detect potential circular patterns 
+threshold <- 600 
+potential_circ <- filtered_raster >= threshold
+plot(potential_circ,col=grey(seq(0, 1, length = 8)))
+
+
+# Label connected regions in the binary image and extract their properties (area, centroid, etc.):
+library(EBImage)
+labelled_circ <- bwlabel(as.matrix(potential_circ) )
+circ_props <- computeFeatures.moment(labelled_circ)
+plot(circ_props,col=grey(seq(0, 1, length = 8)))
+
+min_area <- 300
+area_data <- table(labelled_circ)
+
+# Remove the background (region with label 0)
+area_data <- area_data[-1]
+
+circ_props_with_area <- cbind(circ_props, area = area_data)
+area_col_index <- which(colnames(circ_props_with_area) == "area")
+filtered_circ_indices <- which(circ_props_with_area[, area_col_index] >= min_area)
+filtered_circ_props <- circ_props_with_area[filtered_circ_indices, ]
+plot(filtered_circ_props,col=grey(seq(0, 1, length = 8)))
+
+circ_centroids <- filtered_circ_props[, c("m.cx", "m.cy")]
+
+xy_to_coords <- function(raster, x, y) {
+  cell <- cellFromRowCol(raster, y, x) 
+  coords <- xyFromCell(raster, cell)
+  return(coords)
+}
+
+circ_coords <- t(apply(circ_centroids, 1, function(xy) {
+  xy_to_coords(image_raster, xy[1], xy[2])
+}))
+
+circ_coords_no_na <- circ_coords[complete.cases(circ_coords),]
+
+circ_sp <- SpatialPoints(circ_coords_no_na)
+
+# some plots
+
+plot(image_raster, col = grey(seq(0, 1, length = 256)), legend = FALSE)
+plot(circ_sp, add = TRUE, col = "red", pch = 0, cex = 1)
+
